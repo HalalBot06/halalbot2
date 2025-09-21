@@ -39,21 +39,24 @@ RUN mkdir -p data/history static
 RUN useradd -m -u 1000 halalbot && chown -R halalbot:halalbot /app
 USER halalbot
 
-# Set environment variables for Railway
-ENV PORT=8501
+# Railway provides PORT environment variable dynamically
+# Don't hardcode the port - let Railway set it
 
-# Expose the port Railway expects
-EXPOSE $PORT
+# Expose port 8080 (Railway's default)
+EXPOSE 8080
 
 # Health check for Railway
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:$PORT/_stcore/health || exit 1
+    CMD curl -f http://localhost:${PORT:-8080}/_stcore/health || exit 1
 
-# Run Streamlit with dynamic port from Railway
+# Run Streamlit with Railway's dynamic port
+# Railway sets the PORT environment variable automatically
 CMD streamlit run app.py \
-    --server.port=$PORT \
+    --server.port=${PORT:-8080} \
     --server.address=0.0.0.0 \
     --server.headless=true \
     --server.runOnSave=false \
     --server.fileWatcherType=none \
-    --browser.gatherUsageStats=false
+    --browser.gatherUsageStats=false \
+    --server.enableCORS=false \
+    --server.enableXsrfProtection=false
