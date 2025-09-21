@@ -1,0 +1,67 @@
+# .streamlit/config.toml
+# Streamlit configuration for Railway deployment
+
+[global]
+developmentMode = false
+
+[server]
+headless = true
+enableCORS = false
+enableXsrfProtection = false
+maxUploadSize = 50
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+primaryColor = "#1B5E3F"
+backgroundColor = "#FDFDF8"
+secondaryBackgroundColor = "#F9F9F4"
+textColor = "#1A202C"
+
+---
+
+# railway.json
+# Railway-specific deployment configuration
+{
+  "build": {
+    "builder": "NIXPACKS"
+  },
+  "deploy": {
+    "startCommand": "streamlit run app.py --server.port $PORT --server.address 0.0.0.0",
+    "healthcheckPath": "/healthz"
+  }
+}
+
+---
+
+# Procfile
+# Alternative process file for Railway
+web: streamlit run app.py --server.port $PORT --server.address 0.0.0.0
+
+---
+
+# .railway/static.yaml
+# Static file serving configuration for Railway
+static:
+  - path: /static
+    dir: ./static
+    headers:
+      Cache-Control: public, max-age=3600
+      
+---
+
+# nixpacks.toml
+# Nixpacks configuration for Railway deployment
+[phases.build]
+dependsOn = ['install']
+
+[phases.install]
+cmds = [
+  'pip install -r requirements.txt',
+  'mkdir -p static',
+  'mkdir -p .streamlit'
+]
+
+[start]
+cmd = 'streamlit run app.py --server.port $PORT --server.address 0.0.0.0'
