@@ -46,10 +46,11 @@ EXPOSE 8501
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8501/_stcore/health || exit 1
 
-# Run Streamlit
+# Run Streamlit with Railway-specific configuration
 CMD ["streamlit", "run", "app.py", \
      "--server.port=8501", \
      "--server.address=0.0.0.0", \
      "--server.headless=true", \
      "--server.runOnSave=false", \
-     "--server.fileWatcherType=none"]
+     "--server.fileWatcherType=none", \
+     "--browser.gatherUsageStats=false"]
