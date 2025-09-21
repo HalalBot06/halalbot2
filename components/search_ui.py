@@ -10,7 +10,7 @@ from components.styling import (
     create_search_tips
 )
 from services.search_service import search_faiss
-from core.feedback import log_feedback
+from feedback_utils import log_feedback
 from core.query_blocking import is_blocked_query, log_blocked_query
 from utils.hashing import hash_text
 from utils.logging import log_query_for_user
