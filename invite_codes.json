@@ -1,0 +1,172 @@
+{
+  "_metadata": {
+    "description": "HalalBot Invite Code Management System",
+    "version": "1.0",
+    "last_updated": "2025-01-21",
+    "total_codes": 22,
+    "used_codes": 1,
+    "available_codes": 21
+  },
+  "admincode": {
+    "used": true,
+    "created_at": "2025-01-01T00:00:00Z",
+    "description": "Primary admin access code",
+    "user_type": "admin",
+    "priority": "high",
+    "email": "info@halalbot.app",
+    "used_at": "2025-09-21T14:49:59.395238"
+  },
+  "ghada": {
+    "used": false,
+    "created_at": "2025-01-21T12:00:00Z",
+    "description": "Personal invite for Ghada",
+    "user_type": "personal",
+    "priority": "high"
+  },
+  "shazeen": {
+    "used": false,
+    "created_at": "2025-01-21T12:00:00Z",
+    "description": "Personal invite for Shazeen",
+    "user_type": "personal",
+    "priority": "high"
+  },
+  "ADMIN2025": {
+    "used": false,
+    "created_at": "2025-01-21T12:00:00Z",
+    "description": "Secondary admin invite code",
+    "user_type": "admin",
+    "priority": "high"
+  },
+  "SCHOLAR01": {
+    "used": false,
+    "created_at": "2025-01-21T12:00:00Z",
+    "description": "Islamic scholar access code",
+    "user_type": "scholar",
+    "priority": "high"
+  },
+  "SCHOLAR02": {
+    "used": false,
+    "created_at": "2025-01-21T12:00:00Z",
+    "description": "Islamic scholar access code",
+    "user_type": "scholar",
+    "priority": "high"
+  },
+  "SCHOLAR03": {
+    "used": false,
+    "created_at": "2025-01-21T12:00:00Z",
+    "description": "Islamic scholar access code",
+    "user_type": "scholar",
+    "priority": "high"
+  },
+  "BETA001": {
+    "used": true,
+    "used_by_email": "beta.tester@example.com",
+    "used_at": "2025-01-18T14:22:15Z",
+    "created_at": "2025-01-10T09:00:00Z",
+    "description": "Beta tester invitation",
+    "user_type": "beta_tester",
+    "priority": "medium"
+  },
+  "BETA002": {
+    "used": false,
+    "created_at": "2025-01-10T09:00:00Z",
+    "description": "Beta tester invitation",
+    "user_type": "beta_tester",
+    "priority": "medium"
+  },
+  "BETA003": {
+    "used": false,
+    "created_at": "2025-01-10T09:00:00Z",
+    "description": "Beta tester invitation",
+    "user_type": "beta_tester",
+    "priority": "medium"
+  },
+  "ALPHA001": {
+    "used": false,
+    "created_at": "2025-01-21T12:00:00Z",
+    "description": "Alpha release early access",
+    "user_type": "early_access",
+    "priority": "medium"
+  },
+  "ALPHA002": {
+    "used": false,
+    "created_at": "2025-01-21T12:00:00Z",
+    "description": "Alpha release early access",
+    "user_type": "early_access",
+    "priority": "medium"
+  },
+  "COMMUNITY01": {
+    "used": false,
+    "created_at": "2025-01-21T12:00:00Z",
+    "description": "Community member invite",
+    "user_type": "community",
+    "priority": "normal"
+  },
+  "COMMUNITY02": {
+    "used": false,
+    "created_at": "2025-01-21T12:00:00Z",
+    "description": "Community member invite",
+    "user_type": "community",
+    "priority": "normal"
+  },
+  "COMMUNITY03": {
+    "used": false,
+    "created_at": "2025-01-21T12:00:00Z",
+    "description": "Community member invite",
+    "user_type": "community",
+    "priority": "normal"
+  },
+  "STUDENT01": {
+    "used": false,
+    "created_at": "2025-01-21T12:00:00Z",
+    "description": "Islamic studies student access",
+    "user_type": "student",
+    "priority": "normal"
+  },
+  "STUDENT02": {
+    "used": false,
+    "created_at": "2025-01-21T12:00:00Z",
+    "description": "Islamic studies student access",
+    "user_type": "student",
+    "priority": "normal"
+  },
+  "TEACHER01": {
+    "used": false,
+    "created_at": "2025-01-21T12:00:00Z",
+    "description": "Islamic teacher/educator access",
+    "user_type": "educator",
+    "priority": "medium"
+  },
+  "TEACHER02": {
+    "used": false,
+    "created_at": "2025-01-21T12:00:00Z",
+    "description": "Islamic teacher/educator access",
+    "user_type": "educator",
+    "priority": "medium"
+  },
+  "DEV001": {
+    "used": false,
+    "created_at": "2025-01-21T12:00:00Z",
+    "description": "Developer testing code",
+    "user_type": "developer",
+    "priority": "low",
+    "expires_at": "2025-03-01T00:00:00Z"
+  },
+  "TEST123": {
+    "used": false,
+    "created_at": "2025-01-21T12:00:00Z",
+    "description": "General testing purposes",
+    "user_type": "test",
+    "priority": "low",
+    "expires_at": "2025-02-28T00:00:00Z"
+  },
+  "RAMADAN2025": {
+    "used": false,
+    "created_at": "2025-01-21T12:00:00Z",
+    "description": "Special Ramadan access code",
+    "user_type": "special_event",
+    "priority": "normal",
+    "valid_from": "2025-02-28T00:00:00Z",
+    "expires_at": "2025-04-30T23:59:59Z"
+  }
+}
