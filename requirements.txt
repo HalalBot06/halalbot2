@@ -1,23 +1,23 @@
-# HalalBot Requirements for Dockerfile Deployment
-# PyTorch is installed separately in Dockerfile
+# HalalBot Railway Requirements - BULLETPROOF VERSION
+# Let pip resolve compatible versions automatically
 
-streamlit==1.38.0
-psycopg2-binary==2.9.10
-numpy==1.26.4
-pandas==2.2.3
-requests==2.32.3
+streamlit>=1.35.0,<1.40.0
+psycopg2-binary>=2.9.7,<3.0.0
+numpy>=1.24.0,<2.0.0
+pandas>=2.0.0,<3.0.0
+requests>=2.31.0
 
-# Hugging Face ecosystem
-transformers==4.44.0
-huggingface-hub==0.23.0
-tokenizers==0.19.1
-safetensors==0.4.3
+# Hugging Face ecosystem - let pip resolve versions
+transformers>=4.34.0,<5.0.0
+huggingface-hub>=0.15.1
+tokenizers>=0.13.0
+safetensors>=0.3.0
 
-# Sentence Transformers (will use CPU PyTorch)
-sentence-transformers==2.7.0
+# Sentence Transformers
+sentence-transformers>=2.7.0,<3.0.0
 
 # Essential utilities
-tqdm==4.66.4
-regex==2024.5.15
-filelock==3.15.4
-PyYAML==6.0.1
+tqdm>=4.65.0
+regex>=2022.1.18
+filelock>=3.0.0
+PyYAML>=5.1
