@@ -61,8 +61,8 @@ def create_search_interface():
             "Minimum score",
             min_value=0.0,
             max_value=1.0,
-            value=0.5,
-            step=0.05,
+            value=0.05,
+            step=0.01,
             label_visibility="collapsed"
         )
         st.markdown('</div>', unsafe_allow_html=True)
