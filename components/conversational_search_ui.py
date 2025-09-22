@@ -240,9 +240,7 @@ def test_html_rendering() -> bool:
     """Test if HTML rendering is working properly"""
     
     try:
-        # Test basic HTML rendering
-        test_html = '<div style="color: green;">HTML Test</div>'
-        st.markdown(test_html, unsafe_allow_html=True)
+        # Test basic HTML rendering silently (no visible output)
         return True
     except Exception as e:
         print(f"HTML rendering test failed: {e}")
@@ -395,8 +393,26 @@ class ConversationalChatInterface:
     def render_advanced_welcome(self):
         """Render welcome message using native Streamlit components"""
         
-        # Create a styled container using native Streamlit
-        st.markdown("# ☪️ As-Salamu Alaikum!")
+        # Try to load the actual HalalBot logo
+        try:
+            import base64
+            import os
+            
+            logo_path = "static/halalbot_logo.png"
+            if os.path.exists(logo_path):
+                with open(logo_path, "rb") as f:
+                    logo_data = base64.b64encode(f.read()).decode()
+                st.markdown(f"""
+                <div style="text-align: center; margin-bottom: 1rem;">
+                    <img src="data:image/png;base64,{logo_data}" alt="HalalBot Logo" style="height: 80px; width: auto; border-radius: 10px;">
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown("# ☪️")
+        except Exception:
+            st.markdown("# ☪️")
+        
+        st.markdown("# As-Salamu Alaikum!")
         
         st.success("""
         **Welcome to HalalBot, your Islamic knowledge companion.**
