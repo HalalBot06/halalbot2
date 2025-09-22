@@ -54,17 +54,28 @@ def force_conversational_css():
         margin: 1rem 0;
     }
     
-    /* Welcome message container */
+    /* Welcome message container - FIXED COLOR INHERITANCE */
     .welcome-container {
-        background: linear-gradient(135deg, #1B5E3F 0%, #2E7D4A 100%);
+        background: linear-gradient(135deg, #1B5E3F 0%, #2E7D4A 100%) !important;
         color: white !important;
-        padding: 2rem;
-        border-radius: 20px;
-        margin-bottom: 2rem;
-        text-align: center;
-        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-        position: relative;
-        overflow: hidden;
+        padding: 2rem !important;
+        border-radius: 20px !important;
+        margin-bottom: 2rem !important;
+        text-align: center !important;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+        position: relative !important;
+        overflow: hidden !important;
+    }
+    
+    /* CRITICAL FIX: Force all nested elements to be white */
+    .welcome-container,
+    .welcome-container *,
+    .welcome-container div,
+    .welcome-container p,
+    .welcome-container h2,
+    .welcome-container em,
+    .welcome-container strong {
+        color: white !important;
     }
     
     .welcome-container::before {
@@ -382,28 +393,21 @@ class ConversationalChatInterface:
             self.render_conversation_starters_fallback(topics)
 
     def render_advanced_welcome(self):
-        """Render advanced welcome message with full styling"""
+        """Render welcome message using native Streamlit components"""
         
-        # Load HalalBot logo
-        logo_element = self.get_logo_element()
+        # Create a styled container using native Streamlit
+        st.markdown("# ☪️ As-Salamu Alaikum!")
         
-        welcome_html = f"""
-        <div class="welcome-container">
-            {logo_element}
-            <h2>As-Salamu Alaikum!</h2>
-            <p>
-                Welcome to HalalBot, your Islamic knowledge companion. 
-                Ask me anything about Islam, and I'll provide guidance based on the Quran, 
-                Hadith, and scholarly consensus.
-            </p>
-            <p style="font-size: 0.95rem; opacity: 0.9;">
-                🧠 <em>Note: I am an AI assistant trained on the Qur'an, Hadith, and select scholarly sources.</em><br>
-                Please consult your local Imam or a qualified scholar for specific religious rulings.
-            </p>
-        </div>
-        """
+        st.success("""
+        **Welcome to HalalBot, your Islamic knowledge companion.**
         
-        st.markdown(welcome_html, unsafe_allow_html=True)
+        Ask me anything about Islam, and I'll provide guidance based on the Quran, 
+        Hadith, and scholarly consensus.
+        
+        🧠 *Note: I am an AI assistant trained on the Qur'an, Hadith, and select scholarly sources.*
+        
+        Please consult your local Imam or a qualified scholar for specific religious rulings.
+        """)
         
         # Conversation starters
         self.render_conversation_starters()
@@ -507,57 +511,17 @@ class ConversationalChatInterface:
             st.markdown('</div>', unsafe_allow_html=True)
 
     def display_user_message(self, query: str):
-        """Display user message with fallback handling"""
+        """Display user message using native Streamlit"""
         
-        if not self.html_rendering_works:
-            FallbackRenderer.render_message_fallback(True, query)
-            return
-        
-        try:
-            user_html = f'''
-            <div class="user-message">
-                <div class="user-message-content">
-                    👤 {query}
-                </div>
-            </div>
-            '''
-            st.markdown(user_html, unsafe_allow_html=True)
-            
-        except Exception as e:
-            print(f"User message rendering failed: {e}")
-            FallbackRenderer.render_message_fallback(True, query)
+        st.markdown(f"**👤 You:** {query}")
 
     def display_ai_response(self, response: Dict):
-        """Display AI response with comprehensive error handling"""
+        """Display AI response using native Streamlit"""
         
-        if not self.html_rendering_works:
-            FallbackRenderer.render_message_fallback(False, response.get('main_answer', ''))
-            self.display_response_components_fallback(response)
-            return
+        st.markdown(f"**🤖 HalalBot:** {response['main_answer']}")
         
-        try:
-            # Main response bubble
-            response_html = f'''
-            <div class="ai-message">
-                <div class="ai-message-content">
-                    <div class="ai-message-header">
-                        <span style="font-size: 1.2rem;">🤖</span>
-                        <strong>HalalBot</strong>
-                    </div>
-                    {response['main_answer'].replace(chr(10), '<br>')}
-                </div>
-            </div>
-            '''
-            
-            st.markdown(response_html, unsafe_allow_html=True)
-            
-            # Response components
-            self.display_response_components(response)
-            
-        except Exception as e:
-            print(f"AI response rendering failed: {e}")
-            FallbackRenderer.render_message_fallback(False, response.get('main_answer', ''))
-            self.display_response_components_fallback(response)
+        # Response components
+        self.display_response_components(response)
 
     def display_response_components(self, response: Dict):
         """Display response components (expandables, sources, etc.)"""
