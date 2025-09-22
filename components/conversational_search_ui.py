@@ -52,9 +52,9 @@ class ConversationalChatInterface:
         self.display_quick_topics()
 
     def display_welcome_message(self):
-        """Display welcoming message for new users"""
+        """Display welcoming message for new users with HalalBot logo"""
         
-        # Try to load the actual HalalBot logo
+        # Load the actual HalalBot logo
         logo_path = "static/halalbot_logo.png"
         logo_html = ""
         
@@ -62,16 +62,18 @@ class ConversationalChatInterface:
             import base64
             import os
             
-            logo_html = f"""
-            <div style="text-align: center; margin-bottom: 1rem;">
-                <img src="data:image/png;base64,{logo_data}" alt="HalalBot Logo" style="height: 80px; width: auto; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            if os.path.exists(logo_path):
+                with open(logo_path, "rb") as f:
+                    logo_data = base64.b64encode(f.read()).decode()
+                logo_html = f"""
+                <div style="text-align: center; margin-bottom: 1.5rem;">
+                    <img src="data:image/png;base64,{logo_data}" alt="HalalBot Logo" style="height: 80px; width: auto; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                 </div>
                 """
-              
             else:
-                # Fallback to text logo
-                logo_html = '''
-                <div style="text-align: center; margin-bottom: 1rem;">
+                # Fallback to styled text logo if file doesn't exist
+                logo_html = """
+                <div style="text-align: center; margin-bottom: 1.5rem;">
                     <div style="
                         display: inline-block;
                         background: rgba(255,255,255,0.2);
@@ -79,16 +81,18 @@ class ConversationalChatInterface:
                         border-radius: 15px;
                         font-size: 2rem;
                         font-weight: bold;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
                     ">☪️ HalalBot</div>
                 </div>
-                '''
-        except Exception:
-            # Fallback if anything goes wrong
-            logo_html = '''
-            <div style="text-align: center; margin-bottom: 1rem;">
+                """
+        except Exception as e:
+            print(f"Warning: Could not load HalalBot logo: {e}")
+            # Simple fallback if anything goes wrong
+            logo_html = """
+            <div style="text-align: center; margin-bottom: 1.5rem;">
                 <div style="font-size: 3rem;">☪️</div>
             </div>
-            '''
+            """
         
         welcome_html = f"""
         <div style="
@@ -302,33 +306,37 @@ class ConversationalChatInterface:
     def log_conversational_feedback(self, response: Dict, feedback_type: str, details: str):
         """Log feedback for conversational responses"""
         
-        from core.feedback import log_feedback
-        from utils.logging import log_user_activity
-        
-        # Extract the user's original query from the response or session state
-        original_query = response.get('query', 'Unknown query')
-        
-        # Log the feedback with enhanced details for conversational responses
-        log_feedback(
-            query=original_query,
-            text=response['main_answer'][:500],  # First 500 chars for identification
-            vote="up" if feedback_type == "helpful" else "down",
-            user_email=st.session_state.email
-        )
-        
-        # Log detailed user activity for conversational feedback
-        log_user_activity(
-            st.session_state.email,
-            "conversational_feedback",
-            {
-                "feedback_type": feedback_type,
-                "details": details,
-                "response_type": response.get('response_type', 'comprehensive'),
-                "had_sources": len(response.get('sources', [])) > 0,
-                "had_follow_ups": len(response.get('follow_up_questions', [])) > 0,
-                "query_category": self.categorize_query(original_query)
-            }
-        )
+        try:
+            from core.feedback import log_feedback
+            from utils.logging import log_user_activity
+            
+            # Extract the user's original query from the response or session state
+            original_query = response.get('query', 'Unknown query')
+            
+            # Log the feedback with enhanced details for conversational responses
+            log_feedback(
+                query=original_query,
+                text=response['main_answer'][:500],  # First 500 chars for identification
+                vote="up" if feedback_type == "helpful" else "down",
+                user_email=st.session_state.email
+            )
+            
+            # Log detailed user activity for conversational feedback
+            log_user_activity(
+                st.session_state.email,
+                "conversational_feedback",
+                {
+                    "feedback_type": feedback_type,
+                    "details": details,
+                    "response_type": response.get('response_type', 'comprehensive'),
+                    "had_sources": len(response.get('sources', [])) > 0,
+                    "had_follow_ups": len(response.get('follow_up_questions', [])) > 0,
+                    "query_category": self.categorize_query(original_query)
+                }
+            )
+        except ImportError:
+            # If feedback modules aren't available, just print
+            print(f"Feedback logged: {feedback_type} - {details}")
 
     def categorize_query(self, query: str) -> str:
         """Categorize query for analytics"""
