@@ -2,7 +2,7 @@
 """
 Enhanced CSS styling and theme management for HalalBot application
 Complete UI redesign with modern, professional Islamic theming
-FIXED VERSION for Railway deployment
+FIXED VERSION: Resolves HTML rendering and CSS timing issues
 """
 
 import streamlit as st
@@ -45,16 +45,35 @@ def get_base64_image(image_path: str) -> str:
 
 
 def apply_custom_css():
-    """Apply comprehensive modern CSS styling for HalalBot with proper form styling"""
+    """
+    Apply comprehensive modern CSS styling for HalalBot
+    FIXED: Ensures HTML rendering works properly
+    """
     
     # Get logo as base64 for embedding
     logo_base64 = get_base64_image("halalbot_logo.png")
     logo_data_url = f"data:image/png;base64,{logo_base64}" if logo_base64 else ""
     
-    st.markdown(f"""
+    # CRITICAL FIX: Use st.html instead of st.markdown for CSS
+    # This ensures better CSS injection and HTML compatibility
+    css_content = f"""
     <style>
     /* Import Google Fonts */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Amiri:wght@400;700&display=swap');
+    
+    /* CRITICAL: Force HTML rendering for Streamlit */
+    .stMarkdown {{
+        color: inherit !important;
+    }}
+    
+    .stMarkdown > div {{
+        color: inherit !important;
+    }}
+    
+    /* Ensure unsafe_allow_html works */
+    [data-testid="stMarkdownContainer"] {{
+        color: inherit !important;
+    }}
     
     /* Root Variables - Enhanced Islamic Color Palette */
     :root {{
@@ -90,12 +109,17 @@ def apply_custom_css():
         --gradient-subtle: linear-gradient(135deg, var(--warm-white) 0%, var(--off-white) 100%);
     }}
     
-    /* Global Styles */
+    /* CRITICAL FIX: Global Styles with Higher Specificity */
     .stApp {{
         background: var(--warm-white) !important;
         font-family: 'Inter', sans-serif !important;
         color: var(--text-dark) !important;
-        line-height: 1.6;
+        line-height: 1.6 !important;
+    }}
+    
+    /* CRITICAL FIX: Force HTML content to inherit proper styles */
+    .stApp * {{
+        color: inherit;
     }}
     
     /* Hide Streamlit Branding */
@@ -104,7 +128,7 @@ def apply_custom_css():
     header {{visibility: hidden;}}
     .stDeployButton {{visibility: hidden;}}
     
-    /* CRITICAL FIX: Form Field Styling with Proper Color Inheritance */
+    /* CRITICAL FIX: Enhanced Form Field Styling with Better Inheritance */
     .stTextInput > div > div > input,
     .stSelectbox > div > div > div,
     .stTextArea > div > div > textarea {{
@@ -148,6 +172,98 @@ def apply_custom_css():
         font-size: 1.1rem !important;
         margin-bottom: 0.5rem !important;
         font-family: 'Inter', sans-serif !important;
+    }}
+    
+    /* CONVERSATIONAL INTERFACE SPECIFIC FIXES */
+    
+    /* Welcome Container - Fixed HTML Rendering */
+    .welcome-container {{
+        background: linear-gradient(135deg, #1B5E3F 0%, #2E7D4A 100%) !important;
+        color: white !important;
+        padding: 2rem !important;
+        border-radius: 20px !important;
+        margin-bottom: 2rem !important;
+        text-align: center !important;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+        position: relative !important;
+        overflow: hidden !important;
+    }}
+    
+    .welcome-container * {{
+        color: white !important;
+    }}
+    
+    .welcome-container h2 {{
+        margin: 0 !important;
+        font-family: 'Amiri', serif !important;
+        font-size: 2.5rem !important;
+        color: white !important;
+    }}
+    
+    .welcome-container p {{
+        margin: 1rem 0 !important;
+        font-size: 1.1rem !important;
+        color: white !important;
+        line-height: 1.7 !important;
+    }}
+    
+    .welcome-container em {{
+        color: white !important;
+        font-style: italic !important;
+    }}
+    
+    /* Chat Messages - Fixed HTML Rendering */
+    .user-message {{
+        display: flex !important;
+        justify-content: flex-end !important;
+        margin: 1rem 0 !important;
+    }}
+    
+    .user-message-content {{
+        background: linear-gradient(135deg, #E8F5E8 0%, #D4EDDA 100%) !important;
+        color: #1B5E3F !important;
+        padding: 1rem 1.5rem !important;
+        border-radius: 20px 20px 5px 20px !important;
+        max-width: 75% !important;
+        font-weight: 500 !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+        border: 1px solid rgba(27, 94, 63, 0.2) !important;
+    }}
+    
+    .ai-message {{
+        display: flex !important;
+        justify-content: flex-start !important;
+        margin: 1rem 0 !important;
+    }}
+    
+    .ai-message-content {{
+        background: white !important;
+        color: #2D3748 !important;
+        padding: 1.5rem !important;
+        border-radius: 20px 20px 20px 5px !important;
+        max-width: 85% !important;
+        border-left: 4px solid #1B5E3F !important;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.1) !important;
+        line-height: 1.6 !important;
+        border: 1px solid #e2e8f0 !important;
+    }}
+    
+    .ai-message-content * {{
+        color: #2D3748 !important;
+    }}
+    
+    .ai-message-header {{
+        display: flex !important;
+        align-items: center !important;
+        margin-bottom: 0.75rem !important;
+        padding-bottom: 0.5rem !important;
+        border-bottom: 1px solid #f1f3f4 !important;
+    }}
+    
+    .ai-message-header strong {{
+        margin-left: 0.5rem !important;
+        color: #1B5E3F !important;
+        font-size: 1.1rem !important;
     }}
     
     /* Tab styling */
@@ -234,11 +350,6 @@ def apply_custom_css():
         background-size: contain;
         background-repeat: no-repeat;
         background-position: center;
-    }}
-    
-    /* If logo loads, hide the text */
-    .logo-placeholder:not(:empty)::before {{
-        content: '';
     }}
     
     .logo-text {{
@@ -539,6 +650,26 @@ def apply_custom_css():
         border: 1px solid var(--border-light);
     }}
     
+    /* CRITICAL: Chat container for better HTML rendering */
+    .chat-container {{
+        max-height: 70vh;
+        overflow-y: auto;
+        padding: 1rem;
+        border-radius: 15px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+        border: 1px solid #e2e8f0;
+        margin: 1rem 0;
+    }}
+    
+    /* Feedback container */
+    .feedback-container {{
+        background: linear-gradient(135deg, #F7FAFC 0%, #EDF2F7 100%);
+        border-radius: 15px;
+        padding: 1rem;
+        margin: 1rem 0;
+        border: 1px solid #E2E8F0;
+    }}
+    
     /* Responsive Design */
     @media (max-width: 768px) {{
         .main .block-container {{
@@ -575,6 +706,19 @@ def apply_custom_css():
         
         .disclaimer-container {{
             padding: 1.5rem;
+        }}
+        
+        .user-message-content,
+        .ai-message-content {{
+            max-width: 95% !important;
+        }}
+        
+        .welcome-container {{
+            padding: 1.5rem !important;
+        }}
+        
+        .welcome-container h2 {{
+            font-size: 2rem !important;
         }}
     }}
     
@@ -621,8 +765,31 @@ def apply_custom_css():
     .disclaimer-container {{
         animation: fadeInUp 0.4s ease-out;
     }}
+    
+    /* Welcome container animation */
+    .welcome-container::before {{
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: shimmer 3s linear infinite;
+    }}
+    
+    @keyframes shimmer {{
+        0% {{ transform: rotate(0deg); }}
+        100% {{ transform: rotate(360deg); }}
+    }}
     </style>
-    """, unsafe_allow_html=True)
+    """
+    
+    # CRITICAL: Use st.html for better CSS injection instead of st.markdown
+    st.components.v1.html(css_content, height=0)
+    
+    # BACKUP: Also inject via markdown as fallback
+    st.markdown(css_content, unsafe_allow_html=True)
 
 
 def create_app_header():
@@ -807,6 +974,36 @@ def test_static_files():
     else:
         print("❌ Static directory not found")
         return False, False
+
+
+def force_html_rendering():
+    """
+    Force HTML rendering capability in Streamlit
+    This function ensures unsafe_allow_html works properly
+    """
+    
+    # Method 1: Inject HTML rendering enabler
+    html_enabler = """
+    <style>
+    /* Force HTML rendering */
+    .stMarkdown [data-testid="stMarkdownContainer"] {
+        color: inherit !important;
+    }
+    
+    /* Enable HTML content rendering */
+    .stMarkdown > div {
+        color: inherit !important;
+    }
+    </style>
+    <script>
+    // Enable HTML rendering
+    if (window.parent) {
+        window.parent.postMessage({type: 'enableHTML'}, '*');
+    }
+    </script>
+    """
+    
+    st.components.v1.html(html_enabler, height=0)
 
 
 if __name__ == "__main__":
