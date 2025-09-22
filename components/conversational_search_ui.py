@@ -67,7 +67,7 @@ class ConversationalChatInterface:
                     logo_data = base64.b64encode(f.read()).decode()
                 logo_html = f'''
                 <div style="text-align: center; margin-bottom: 1rem;">
-                    <img src="data:image/png;base64,{logo_data}" 
+                    <img src="data:image/png;base64,iVB0Rw0KGgoAAAANSUhEUg..." 
                          alt="HalalBot Logo" 
                          style="height: 80px; width: auto; border-radius: 10px;">
                 </div>
