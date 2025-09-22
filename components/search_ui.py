@@ -36,6 +36,8 @@ def create_search_interface():
         label_visibility="collapsed",
         key="main_search"
     )
+    # Add this right after the text input
+    search_button = st.button("🔍 Search", type="primary")
     
     # Controls section in a grid layout
     st.markdown('<div class="controls-container">', unsafe_allow_html=True)
@@ -93,7 +95,7 @@ def create_search_interface():
     st.markdown('</div>', unsafe_allow_html=True)  # Close search-container
     
     # Process search query
-    if query:
+    if query and search_button:
         process_search_query(query, top_k, min_score, filter_choice)
 
 

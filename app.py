@@ -1,13 +1,10 @@
 # app.py
 """
 HalalBot - Islamic Knowledge Chatbot
-Refactored main application file with Railway deployment fixes
+Enhanced with Conversational AI Interface
 
-FIXES APPLIED:
-1. Enhanced static file handling for Railway deployment
-2. Proper CSS application order
-3. Logo/favicon loading with fallbacks
-4. Form field styling fixes
+MAJOR UPDATE: Added conversational interface option
+Toggle between traditional search and conversational AI
 """
 
 # --- SECTION 1: IMPORTS & DEPENDENCIES ---
@@ -24,7 +21,11 @@ from components.auth_ui import (
     show_login, init_session_state, check_authentication,
     show_logout_button, show_user_info
 )
-from components.search_ui import create_search_interface
+
+# UPDATED: Import both search interfaces
+from components.search_ui import create_search_interface  # Original
+from components.conversational_search_ui import create_conversational_search_interface  # NEW
+
 from components.admin_ui import show_admin_dashboard, show_admin_tools_sidebar
 
 # Core logic imports
@@ -98,6 +99,9 @@ def configure_app():
     # Initialize session state
     init_session_state()
     
+    # NEW: Initialize conversational interface preference
+    init_conversational_preferences()
+    
     # Setup query filtering rules
     setup_default_rules()
     
@@ -107,6 +111,17 @@ def configure_app():
     # Debug info for deployment
     if st.sidebar.checkbox("🔧 Debug Info", False):
         show_debug_info(assets)
+
+
+def init_conversational_preferences():
+    """Initialize user preferences for conversational interface"""
+    
+    if 'use_conversational_interface' not in st.session_state:
+        # Default to conversational interface for new users
+        st.session_state.use_conversational_interface = True
+    
+    if 'interface_onboarding_shown' not in st.session_state:
+        st.session_state.interface_onboarding_shown = False
 
 
 def show_debug_info(assets):
@@ -125,6 +140,11 @@ def show_debug_info(assets):
     st.sidebar.write("**Assets:**")
     st.sidebar.write(f"Logo loaded: {'✅' if assets.get('logo') else '❌'}")
     st.sidebar.write(f"Favicon loaded: {'✅' if assets.get('favicon') else '❌'}")
+    
+    # Interface status
+    st.sidebar.write("**Interface:**")
+    interface_type = "Conversational" if st.session_state.use_conversational_interface else "Traditional"
+    st.sidebar.write(f"Mode: {interface_type}")
     
     # File system check
     st.sidebar.write("**File System:**")
@@ -165,6 +185,9 @@ def show_authenticated_interface():
     # Show user info in sidebar
     show_user_info()
     
+    # NEW: Show interface toggle in sidebar
+    show_interface_toggle()
+    
     # Show admin tools in sidebar if user is admin
     show_admin_tools_sidebar()
     
@@ -174,6 +197,33 @@ def show_authenticated_interface():
     # Logout button
     st.markdown("---")
     show_logout_button()
+
+
+def show_interface_toggle():
+    """Show interface mode toggle in sidebar"""
+    
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🔄 Interface Mode")
+    
+    # Toggle between interfaces
+    use_conversational = st.sidebar.toggle(
+        "Conversational AI Mode",
+        value=st.session_state.use_conversational_interface,
+        help="Toggle between traditional search and conversational AI interface"
+    )
+    
+    # Update session state if changed
+    if use_conversational != st.session_state.use_conversational_interface:
+        st.session_state.use_conversational_interface = use_conversational
+        st.rerun()
+    
+    # Show current mode
+    if st.session_state.use_conversational_interface:
+        st.sidebar.success("🤖 AI Chat Mode Active")
+        st.sidebar.caption("Natural conversation with Islamic AI assistant")
+    else:
+        st.sidebar.info("🔍 Traditional Search Mode")
+        st.sidebar.caption("Direct search through Islamic texts")
 
 
 # --- SECTION 5: MAIN CONTENT INTERFACE ---
@@ -189,8 +239,8 @@ def main_content_area():
             st.session_state.show_admin = False
             st.rerun()
     else:
-        # Show main search interface
-        create_search_interface()
+        # NEW: Choose interface based on user preference
+        show_search_interface()
         
         # Show admin section for admin users
         from components.auth_ui import is_current_user_admin
@@ -199,6 +249,65 @@ def main_content_area():
             if st.button("🛠️ Admin Dashboard"):
                 st.session_state.show_admin = True
                 st.rerun()
+
+
+def show_search_interface():
+    """Show the appropriate search interface based on user preference"""
+    
+    # Show onboarding message for first-time conversational users
+    if (st.session_state.use_conversational_interface and
+        not st.session_state.interface_onboarding_shown):
+        show_conversational_onboarding()
+    
+    try:
+        if st.session_state.use_conversational_interface:
+            # NEW: Use conversational interface
+            create_conversational_search_interface()
+        else:
+            # ORIGINAL: Use traditional search interface
+            create_search_interface()
+            
+    except ImportError as e:
+        # Fallback if conversational interface isn't available
+        st.warning("⚠️ Conversational interface not available. Using traditional search.")
+        st.session_state.use_conversational_interface = False
+        create_search_interface()
+        
+        # Show error in debug mode
+        if st.session_state.get("debug_mode", False):
+            st.error(f"Import error: {e}")
+    
+    except Exception as e:
+        st.error("❌ Error loading search interface. Please refresh the page.")
+        if st.session_state.get("debug_mode", False):
+            st.exception(e)
+
+
+def show_conversational_onboarding():
+    """Show onboarding message for new conversational interface users"""
+    
+    with st.container():
+        st.markdown("""
+        <div style="
+            background: linear-gradient(135deg, #E6FFFA 0%, #B2F5EA 100%);
+            border: 2px solid #38B2AC;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        ">
+            <h3 style="color: #1A365D; margin: 0 0 1rem 0;">
+                🆕 Welcome to Conversational Mode!
+            </h3>
+            <p style="color: #2D3748; margin: 0;">
+                You're now using our new AI chat interface. Instead of showing search results, 
+                I'll have natural conversations with you about Islamic topics, providing 
+                personalized guidance based on the Quran, Hadith, and scholarly consensus.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Mark onboarding as shown
+    st.session_state.interface_onboarding_shown = True
 
 
 # --- SECTION 6: HEALTH CHECK ENDPOINT ---
@@ -262,7 +371,10 @@ def railway_deploy_check():
         "requirements.txt",
         ".streamlit/config.toml",
         "static/halalbot_logo.png",
-        "static/halalbot_favicon.ico"
+        "static/halalbot_favicon.ico",
+        # NEW: Check for conversational components
+        "services/conversational_service.py",
+        "components/conversational_search_ui.py"
     ]
     
     print("\nFile Check:")
@@ -287,9 +399,21 @@ def railway_deploy_check():
     
     try:
         from components.search_ui import create_search_interface
-        print("✅ Search component")
+        print("✅ Traditional search component")
     except Exception as e:
-        print(f"❌ Search component: {e}")
+        print(f"❌ Traditional search component: {e}")
+    
+    try:
+        from components.conversational_search_ui import create_conversational_search_interface
+        print("✅ Conversational search component")
+    except Exception as e:
+        print(f"❌ Conversational search component: {e}")
+    
+    try:
+        from services.conversational_service import search_conversational
+        print("✅ Conversational service")
+    except Exception as e:
+        print(f"❌ Conversational service: {e}")
     
     print("\n" + "=" * 40)
     print("Deployment check complete!")
