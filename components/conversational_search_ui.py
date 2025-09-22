@@ -62,16 +62,12 @@ class ConversationalChatInterface:
             import base64
             import os
             
-            if os.path.exists(logo_path):
-                with open(logo_path, "rb") as f:
-                    logo_data = base64.b64encode(f.read()).decode()
-                logo_html = f'''
-                <div style="text-align: center; margin-bottom: 1rem;">
-                    <img src="data:image/png;base64,iVB0Rw0KGgoAAAANSUhEUg..." 
-                         alt="HalalBot Logo" 
-                         style="height: 80px; width: auto; border-radius: 10px;">
+            logo_html = f"""
+            <div style="text-align: center; margin-bottom: 1rem;">
+                <img src="data:image/png;base64,{logo_data}" alt="HalalBot Logo" style="height: 80px; width: auto; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                 </div>
-                '''
+                """
+              
             else:
                 # Fallback to text logo
                 logo_html = '''
