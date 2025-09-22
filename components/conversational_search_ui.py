@@ -54,7 +54,47 @@ class ConversationalChatInterface:
     def display_welcome_message(self):
         """Display welcoming message for new users"""
         
-        welcome_html = """
+        # Try to load the actual HalalBot logo
+        logo_path = "static/halalbot_logo.png"
+        logo_html = ""
+        
+        try:
+            import base64
+            import os
+            
+            if os.path.exists(logo_path):
+                with open(logo_path, "rb") as f:
+                    logo_data = base64.b64encode(f.read()).decode()
+                logo_html = f'''
+                <div style="text-align: center; margin-bottom: 1rem;">
+                    <img src="data:image/png;base64,{logo_data}" 
+                         alt="HalalBot Logo" 
+                         style="height: 80px; width: auto; border-radius: 10px;">
+                </div>
+                '''
+            else:
+                # Fallback to text logo
+                logo_html = '''
+                <div style="text-align: center; margin-bottom: 1rem;">
+                    <div style="
+                        display: inline-block;
+                        background: rgba(255,255,255,0.2);
+                        padding: 1rem 2rem;
+                        border-radius: 15px;
+                        font-size: 2rem;
+                        font-weight: bold;
+                    ">☪️ HalalBot</div>
+                </div>
+                '''
+        except Exception:
+            # Fallback if anything goes wrong
+            logo_html = '''
+            <div style="text-align: center; margin-bottom: 1rem;">
+                <div style="font-size: 3rem;">☪️</div>
+            </div>
+            '''
+        
+        welcome_html = f"""
         <div style="
             background: linear-gradient(135deg, #1B5E3F 0%, #2E7D4A 100%);
             color: white;
@@ -64,11 +104,16 @@ class ConversationalChatInterface:
             text-align: center;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         ">
-            <h2 style="margin: 0; font-family: 'Amiri', serif;">☪️ As-Salamu Alaikum!</h2>
+            {logo_html}
+            <h2 style="margin: 0; font-family: 'Amiri', serif;">As-Salamu Alaikum!</h2>
             <p style="margin: 1rem 0 0 0; font-size: 1.1rem;">
                 Welcome to HalalBot, your Islamic knowledge companion. 
                 Ask me anything about Islam, and I'll provide guidance based on the Quran, 
                 Hadith, and scholarly consensus.
+            </p>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.95rem; opacity: 0.9;">
+                🧠 <em>Note: I am an AI assistant trained on the Qur'an, Hadith, and select scholarly sources.</em><br>
+                Please consult your local Imam or a qualified scholar for specific religious rulings.
             </p>
         </div>
         """
@@ -219,7 +264,7 @@ class ConversationalChatInterface:
         
         with col1:
             if st.button(
-                "👍 Helpful", 
+                "👍 Helpful",
                 key=f"helpful_{response_id}",
                 help="This guidance was beneficial"
             ):
@@ -228,7 +273,7 @@ class ConversationalChatInterface:
         
         with col2:
             if st.button(
-                "👎 Not Helpful", 
+                "👎 Not Helpful",
                 key=f"not_helpful_{response_id}",
                 help="This guidance needs improvement"
             ):
@@ -242,7 +287,7 @@ class ConversationalChatInterface:
                 options=[
                     "Select reason...",
                     "Unclear explanation",
-                    "Missing important details", 
+                    "Missing important details",
                     "Sources not relevant",
                     "Need more Quranic guidance",
                     "Need more Hadith references",

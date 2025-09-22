@@ -119,9 +119,6 @@ def init_conversational_preferences():
     if 'use_conversational_interface' not in st.session_state:
         # Default to conversational interface for new users
         st.session_state.use_conversational_interface = True
-    
-    if 'interface_onboarding_shown' not in st.session_state:
-        st.session_state.interface_onboarding_shown = False
 
 
 def show_debug_info(assets):
@@ -254,11 +251,6 @@ def main_content_area():
 def show_search_interface():
     """Show the appropriate search interface based on user preference"""
     
-    # Show onboarding message for first-time conversational users
-    if (st.session_state.use_conversational_interface and
-        not st.session_state.interface_onboarding_shown):
-        show_conversational_onboarding()
-    
     try:
         if st.session_state.use_conversational_interface:
             # NEW: Use conversational interface
@@ -286,27 +278,8 @@ def show_search_interface():
 def show_conversational_onboarding():
     """Show onboarding message for new conversational interface users"""
     
-    with st.container():
-        st.markdown("""
-        <div style="
-            background: linear-gradient(135deg, #E6FFFA 0%, #B2F5EA 100%);
-            border: 2px solid #38B2AC;
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-        ">
-            <h3 style="color: #1A365D; margin: 0 0 1rem 0;">
-                🆕 Welcome to Conversational Mode!
-            </h3>
-            <p style="color: #2D3748; margin: 0;">
-                You're now using our new AI chat interface. Instead of showing search results, 
-                I'll have natural conversations with you about Islamic topics, providing 
-                personalized guidance based on the Quran, Hadith, and scholarly consensus.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Mark onboarding as shown
+    # Since you're the only user, skip the onboarding message
+    # Just mark it as shown to avoid showing it
     st.session_state.interface_onboarding_shown = True
 
 
