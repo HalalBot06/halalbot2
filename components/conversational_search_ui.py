@@ -332,16 +332,18 @@ class ConversationalChatInterface:
         
         try:
             # Using 3 columns with equal-width buttons
+            # Row 1: Zakat, Hajj, Quran
+            # Row 2: Prayer, Family, Business
             starters = [
-                ("🕌 PRAYER GUIDANCE", "How should I maintain my five daily prayers?"),
                 ("💰 ZAKAT CALCULATION", "How do I calculate zakat on my wealth?"),
                 ("🕋 HAJJ PREPARATION", "What should I know about preparing for Hajj?"),
+                ("📖 QURAN INTERPRETATION", "How should I approach understanding the Quran?"),
+                ("🕌 PRAYER GUIDANCE", "How should I maintain my five daily prayers?"),
                 ("👨‍👩‍👧‍👦 FAMILY MATTERS", "What are the rights and responsibilities in a Muslim family?"),
-                ("💼 BUSINESS ETHICS", "What are the Islamic principles for conducting business?"),
-                ("📖 QURAN INTERPRETATION", "How should I approach understanding the Quran?")
+                ("💼 BUSINESS ETHICS", "What are the Islamic principles for conducting business?")
             ]
             
-            # Row 1: 3 buttons
+            # Row 1: Zakat, Hajj, Quran
             col1, col2, col3 = st.columns(3)
             with col1:
                 if st.button(starters[0][0], key="starter_0", use_container_width=True):
@@ -353,7 +355,7 @@ class ConversationalChatInterface:
                 if st.button(starters[2][0], key="starter_2", use_container_width=True):
                     self.process_user_query(starters[2][1])
             
-            # Row 2: 3 buttons
+            # Row 2: Prayer, Family, Business
             col4, col5, col6 = st.columns(3)
             with col4:
                 if st.button(starters[3][0], key="starter_3", use_container_width=True):
