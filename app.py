@@ -276,6 +276,15 @@ def show_authenticated_interface():
     # Logout section
     st.markdown("---")
     show_logout_button()
+    
+    # Quick Topics section (AFTER Log Out button)
+    # Only shows when using conversational interface and conversation has started
+    if st.session_state.get('use_conversational_interface', False):
+        try:
+            from components.conversational_search_ui import display_quick_topics_section
+            display_quick_topics_section()
+        except ImportError:
+            pass  # Quick topics not available
 
 
 def main_content_area():
