@@ -150,21 +150,31 @@ async def lifespan(app: FastAPI):
     # Start Streamlit
     app_state["streamlit_running"] = start_streamlit()
     
-    # Test database connection
+    # Test database connection using DatabaseManager
     try:
-        from config.database import get_db_connection
-        conn = get_db_connection()
-        if conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM documents")
-            count = cursor.fetchone()[0]
-            app_state["document_count"] = count
+        from config.database import get_db_manager
+        db = get_db_manager()
+        
+        # Use the health_check method
+        if db.health_check():
             app_state["database_connected"] = True
-            cursor.close()
-            conn.close()
-            print(f"✅ Database connected - {count:,} documents available")
+            
+            # Get document count using execute_query
+            result = db.execute_query(
+                "SELECT COUNT(*) as count FROM documents",
+                fetch=True,
+                fetch_one=True
+            )
+            if result:
+                app_state["document_count"] = result.get('count', 0)
+            
+            print(f"✅ Database connected - {app_state['document_count']:,} documents available")
+        else:
+            print("⚠️  Database health check failed")
+            
     except Exception as e:
         print(f"⚠️  Database connection failed: {e}")
+        app_state["database_connected"] = False
     
     # Test model loading
     try:
@@ -183,6 +193,13 @@ async def lifespan(app: FastAPI):
     # === SHUTDOWN ===
     print("👋 Shutting down HalalBot...")
     stop_streamlit()
+    
+    # Cleanup database connections
+    try:
+        from config.database import cleanup_database
+        cleanup_database()
+    except Exception:
+        pass
 
 
 # Create the FastAPI app
