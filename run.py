@@ -1,13 +1,7 @@
 #!/usr/bin/env python3
 """
 HalalBot Combined Server Runner
-
-Runs both FastAPI (REST API) and Streamlit (Web App) together.
-- FastAPI handles /api/* routes for the iOS app
-- Streamlit handles all other routes for the web app
-- WebSocket connections are properly proxied to Streamlit using aiohttp
-
-Railway runs this script, which starts both services.
+v7 - Fixed WebSocket message handling
 """
 
 import os
@@ -27,10 +21,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import httpx
 import aiohttp
 
-# Import the API routes
 from api.schemas import HealthResponse
 from api.routes.chat import router as chat_router
-
 
 # ============================================================================
 # CONFIGURATION
@@ -39,19 +31,17 @@ from api.routes.chat import router as chat_router
 MAIN_PORT = int(os.environ.get("PORT", 8080))
 STREAMLIT_PORT = 8501
 STREAMLIT_HTTP_URL = f"http://127.0.0.1:{STREAMLIT_PORT}"
-STREAMLIT_WS_URL = f"http://127.0.0.1:{STREAMLIT_PORT}"  # aiohttp uses http:// for ws
 
 streamlit_process = None
 http_client = None
-aiohttp_session = None  # For WebSocket connections
+aiohttp_session = None
 
 
 # ============================================================================
-# STREAMLIT SUBPROCESS MANAGEMENT
+# STREAMLIT SUBPROCESS
 # ============================================================================
 
 def start_streamlit():
-    """Start Streamlit as a subprocess"""
     global streamlit_process
     
     print(f"🌐 Starting Streamlit on internal port {STREAMLIT_PORT}...")
@@ -64,7 +54,6 @@ def start_streamlit():
         "--server.runOnSave=false",
         "--server.fileWatcherType=none",
         "--browser.gatherUsageStats=false",
-        # These are critical for WebSocket proxying
         "--server.enableCORS=false",
         "--server.enableXsrfProtection=false",
         "--server.enableWebsocketCompression=false",
@@ -77,56 +66,45 @@ def start_streamlit():
         text=True
     )
     
-    def log_streamlit_output():
+    def log_output():
         try:
             for line in streamlit_process.stdout:
                 print(f"[Streamlit] {line.rstrip()}")
-        except Exception:
+        except:
             pass
     
-    thread = threading.Thread(target=log_streamlit_output, daemon=True)
-    thread.start()
+    threading.Thread(target=log_output, daemon=True).start()
     
-    print("⏳ Waiting for Streamlit to be ready...")
-    max_retries = 60
-    
-    for i in range(max_retries):
+    print("⏳ Waiting for Streamlit...")
+    for i in range(60):
         try:
             with httpx.Client(timeout=2.0) as client:
-                response = client.get(f"{STREAMLIT_HTTP_URL}/_stcore/health")
-                if response.status_code == 200:
-                    print(f"✅ Streamlit is ready on port {STREAMLIT_PORT}")
+                if client.get(f"{STREAMLIT_HTTP_URL}/_stcore/health").status_code == 200:
+                    print(f"✅ Streamlit ready on port {STREAMLIT_PORT}")
                     time.sleep(1)
                     return True
-        except Exception:
+        except:
             pass
         time.sleep(1)
-        if i > 0 and i % 10 == 0:
-            print(f"   Still waiting for Streamlit... ({i}s)")
     
-    print("⚠️  Streamlit may not be fully ready, continuing anyway...")
+    print("⚠️  Streamlit may not be ready")
     return False
 
 
 def stop_streamlit():
-    """Stop the Streamlit subprocess"""
     global streamlit_process
     if streamlit_process:
         print("🛑 Stopping Streamlit...")
         streamlit_process.terminate()
         try:
             streamlit_process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
+        except:
             streamlit_process.kill()
         streamlit_process = None
 
 
-# ============================================================================
-# SIGNAL HANDLERS
-# ============================================================================
-
 def signal_handler(signum, frame):
-    print(f"\n📴 Received signal {signum}, shutting down...")
+    print(f"\n📴 Signal {signum}, shutting down...")
     stop_streamlit()
     sys.exit(0)
 
@@ -142,7 +120,6 @@ app_state = {
     "database_connected": False,
     "model_loaded": False,
     "document_count": None,
-    "streamlit_running": False
 }
 
 
@@ -154,79 +131,55 @@ app_state = {
 async def lifespan(app: FastAPI):
     global http_client, aiohttp_session
     
-    print("🚀 HalalBot Combined Server starting...")
-    print(f"📡 Main port: {MAIN_PORT}")
+    print("🚀 HalalBot starting...")
+    print(f"📡 Port: {MAIN_PORT}")
     
-    # Start Streamlit
-    app_state["streamlit_running"] = start_streamlit()
+    start_streamlit()
     
-    # Initialize HTTP clients
-    http_client = httpx.AsyncClient(
-        base_url=STREAMLIT_HTTP_URL,
-        timeout=30.0,
-        follow_redirects=True
-    )
-    
-    # Create aiohttp session for WebSocket proxying
+    http_client = httpx.AsyncClient(base_url=STREAMLIT_HTTP_URL, timeout=30.0, follow_redirects=True)
     aiohttp_session = aiohttp.ClientSession()
+    print("✅ HTTP proxy initialized")
     
-    print("✅ HTTP proxy client initialized")
-    
-    # Test database
     try:
         from config.database import get_db_manager
         db = get_db_manager()
-        
         if db.health_check():
             app_state["database_connected"] = True
-            result = db.execute_query(
-                "SELECT COUNT(*) as count FROM documents",
-                fetch=True, fetch_one=True
-            )
+            result = db.execute_query("SELECT COUNT(*) as count FROM documents", fetch=True, fetch_one=True)
             if result:
                 app_state["document_count"] = result.get('count', 0)
-            print(f"✅ Database connected - {app_state['document_count']:,} documents available")
-        else:
-            print("⚠️  Database health check failed")
+            print(f"✅ Database: {app_state['document_count']:,} documents")
     except Exception as e:
-        print(f"⚠️  Database connection failed: {e}")
+        print(f"⚠️  Database: {e}")
     
-    # Test model
     try:
         from sentence_transformers import SentenceTransformer
         app_state["model_loaded"] = True
-        print("✅ Sentence transformer model available")
+        print("✅ Model available")
     except Exception as e:
-        print(f"⚠️  Model loading failed: {e}")
+        print(f"⚠️  Model: {e}")
     
-    print("🕌 HalalBot is ready!")
-    print(f"   • Web App: http://localhost:{MAIN_PORT}/")
-    print(f"   • API Docs: http://localhost:{MAIN_PORT}/api/docs")
+    print("🕌 HalalBot ready!")
+    print(f"   • Web: http://localhost:{MAIN_PORT}/")
+    print(f"   • API: http://localhost:{MAIN_PORT}/api/docs")
     
     yield
     
-    # Shutdown
-    print("👋 Shutting down HalalBot...")
+    print("👋 Shutting down...")
     if http_client:
         await http_client.aclose()
     if aiohttp_session:
         await aiohttp_session.close()
     stop_streamlit()
-    
-    try:
-        from config.database import cleanup_database
-        cleanup_database()
-    except Exception:
-        pass
 
 
 # ============================================================================
-# CREATE FASTAPI APP
+# FASTAPI APP
 # ============================================================================
 
 app = FastAPI(
     title="HalalBot",
-    description="Islamic Knowledge Assistant - Web App & REST API",
+    description="Islamic Knowledge Assistant",
     version="1.0.0",
     lifespan=lifespan,
     docs_url="/api/docs",
@@ -251,13 +204,7 @@ app.include_router(chat_router)
 
 @app.get("/api/health", response_model=HealthResponse, tags=["health"])
 async def health_check():
-    if app_state["database_connected"] and app_state["model_loaded"]:
-        status = "healthy"
-    elif app_state["database_connected"] or app_state["model_loaded"]:
-        status = "degraded"
-    else:
-        status = "unhealthy"
-    
+    status = "healthy" if app_state["database_connected"] and app_state["model_loaded"] else "degraded"
     return HealthResponse(
         status=status,
         version="1.0.0",
@@ -270,170 +217,153 @@ async def health_check():
 
 @app.get("/api", tags=["api"])
 async def api_root():
-    return {
-        "name": "HalalBot API",
-        "version": "1.0.0",
-        "endpoints": {
-            "chat": "POST /api/chat",
-            "search": "POST /api/search",
-            "health": "GET /api/health",
-            "docs": "GET /api/docs"
-        }
-    }
+    return {"name": "HalalBot API", "version": "1.0.0"}
 
 
 # ============================================================================
-# WEBSOCKET PROXY TO STREAMLIT (using aiohttp)
+# WEBSOCKET PROXY
 # ============================================================================
 
 @app.websocket("/_stcore/stream")
 async def websocket_proxy(websocket: WebSocket):
-    """
-    Proxy WebSocket connections to Streamlit using aiohttp.
-    """
+    """Proxy WebSocket to Streamlit"""
     global aiohttp_session
     
     await websocket.accept()
     
-    # Build the Streamlit WebSocket URL
     query_string = websocket.scope.get("query_string", b"").decode("utf-8")
     ws_url = f"ws://127.0.0.1:{STREAMLIT_PORT}/_stcore/stream"
     if query_string:
         ws_url += f"?{query_string}"
     
-    streamlit_ws = None
-    
     try:
-        # Connect to Streamlit using aiohttp
-        streamlit_ws = await aiohttp_session.ws_connect(
+        async with aiohttp_session.ws_connect(
             ws_url,
             headers={
                 "Host": f"127.0.0.1:{STREAMLIT_PORT}",
                 "Origin": f"http://127.0.0.1:{STREAMLIT_PORT}",
             },
-            compress=0,  # Disable compression to match Streamlit setting
-        )
-        
-        print(f"✅ WebSocket connected to Streamlit")
-        
-        async def client_to_streamlit():
-            """Forward messages from browser to Streamlit"""
-            try:
-                while True:
-                    data = await websocket.receive()
-                    if data["type"] == "websocket.receive":
-                        if "text" in data:
-                            await streamlit_ws.send_str(data["text"])
-                        elif "bytes" in data:
-                            await streamlit_ws.send_bytes(data["bytes"])
-                    elif data["type"] == "websocket.disconnect":
-                        break
-            except WebSocketDisconnect:
-                pass
-            except Exception as e:
-                if "disconnect" not in str(e).lower():
+            compress=0,
+            autoclose=False,
+            autoping=True,
+        ) as streamlit_ws:
+            
+            print("✅ WebSocket proxy connected")
+            
+            async def forward_to_streamlit():
+                """Browser → Streamlit"""
+                try:
+                    while True:
+                        msg = await websocket.receive()
+                        msg_type = msg.get("type", "")
+                        
+                        if msg_type == "websocket.receive":
+                            if "text" in msg:
+                                await streamlit_ws.send_str(msg["text"])
+                            elif "bytes" in msg:
+                                await streamlit_ws.send_bytes(msg["bytes"])
+                        elif msg_type == "websocket.disconnect":
+                            print("Client disconnected")
+                            break
+                except WebSocketDisconnect:
+                    print("Client WebSocket disconnected")
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
                     print(f"Client→Streamlit error: {type(e).__name__}: {e}")
-        
-        async def streamlit_to_client():
-            """Forward messages from Streamlit to browser"""
-            try:
-                async for msg in streamlit_ws:
-                    if msg.type == aiohttp.WSMsgType.TEXT:
-                        await websocket.send_text(msg.data)
-                    elif msg.type == aiohttp.WSMsgType.BINARY:
-                        await websocket.send_bytes(msg.data)
-                    elif msg.type == aiohttp.WSMsgType.CLOSED:
-                        break
-                    elif msg.type == aiohttp.WSMsgType.ERROR:
-                        print(f"Streamlit WS error: {streamlit_ws.exception()}")
-                        break
-            except Exception as e:
-                if "disconnect" not in str(e).lower():
+            
+            async def forward_to_client():
+                """Streamlit → Browser"""
+                try:
+                    while True:
+                        msg = await streamlit_ws.receive()
+                        
+                        if msg.type == aiohttp.WSMsgType.TEXT:
+                            await websocket.send_text(msg.data)
+                        elif msg.type == aiohttp.WSMsgType.BINARY:
+                            await websocket.send_bytes(msg.data)
+                        elif msg.type == aiohttp.WSMsgType.PING:
+                            await streamlit_ws.pong(msg.data)
+                        elif msg.type == aiohttp.WSMsgType.PONG:
+                            pass  # Ignore pongs
+                        elif msg.type in (aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.CLOSED):
+                            print("Streamlit closed WebSocket")
+                            break
+                        elif msg.type == aiohttp.WSMsgType.ERROR:
+                            print(f"Streamlit WS error: {streamlit_ws.exception()}")
+                            break
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
                     print(f"Streamlit→Client error: {type(e).__name__}: {e}")
-        
-        # Run both directions concurrently
-        client_task = asyncio.create_task(client_to_streamlit())
-        streamlit_task = asyncio.create_task(streamlit_to_client())
-        
-        done, pending = await asyncio.wait(
-            [client_task, streamlit_task],
-            return_when=asyncio.FIRST_COMPLETED
-        )
-        
-        for task in pending:
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
+            
+            # Run both directions
+            task1 = asyncio.create_task(forward_to_streamlit())
+            task2 = asyncio.create_task(forward_to_client())
+            
+            done, pending = await asyncio.wait(
+                [task1, task2],
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            
+            # Cancel remaining task
+            for task in pending:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+            
+            print("WebSocket proxy session ended")
                 
     except aiohttp.WSServerHandshakeError as e:
-        print(f"WebSocket handshake failed: {e.status} - {e.message}")
+        print(f"WebSocket handshake failed: {e.status}")
     except Exception as e:
-        print(f"WebSocket proxy error: {type(e).__name__}: {e}")
+        print(f"WebSocket error: {type(e).__name__}: {e}")
     finally:
-        if streamlit_ws and not streamlit_ws.closed:
-            await streamlit_ws.close()
         try:
             await websocket.close()
-        except Exception:
+        except:
             pass
 
 
 # ============================================================================
-# HTTP PROXY TO STREAMLIT
+# HTTP PROXY
 # ============================================================================
 
-async def proxy_http_request(request: Request, path: str) -> Response:
+async def proxy_http(request: Request, path: str) -> Response:
     global http_client
-    
-    if http_client is None:
-        return Response(content="Proxy not initialized.", status_code=503)
+    if not http_client:
+        return Response(content="Proxy not ready", status_code=503)
     
     url = f"/{path}" if path else "/"
     if request.query_params:
         url += f"?{request.query_params}"
     
     body = await request.body()
-    
-    headers = {}
-    for key, value in request.headers.items():
-        if key.lower() not in ("host", "connection", "transfer-encoding", "upgrade"):
-            headers[key] = value
+    headers = {k: v for k, v in request.headers.items()
+               if k.lower() not in ("host", "connection", "transfer-encoding", "upgrade")}
     headers["Host"] = f"127.0.0.1:{STREAMLIT_PORT}"
     
     try:
-        response = await http_client.request(
-            method=request.method,
-            url=url,
-            headers=headers,
-            content=body,
-        )
-        
-        response_headers = {}
-        for key, value in response.headers.items():
-            if key.lower() not in ("transfer-encoding", "connection", "content-encoding"):
-                response_headers[key] = value
-        
-        return Response(
-            content=response.content,
-            status_code=response.status_code,
-            headers=response_headers,
-        )
+        resp = await http_client.request(method=request.method, url=url, headers=headers, content=body)
+        resp_headers = {k: v for k, v in resp.headers.items()
+                       if k.lower() not in ("transfer-encoding", "connection", "content-encoding")}
+        return Response(content=resp.content, status_code=resp.status_code, headers=resp_headers)
     except httpx.ConnectError:
         return Response(content="Streamlit starting...", status_code=503)
     except Exception as e:
-        return Response(content=f"Proxy error: {e}", status_code=502)
+        return Response(content=f"Error: {e}", status_code=502)
 
 
 @app.get("/", include_in_schema=False)
 async def root(request: Request):
-    return await proxy_http_request(request, "")
+    return await proxy_http(request, "")
 
 
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"], include_in_schema=False)
-async def proxy_to_streamlit(request: Request, path: str):
-    return await proxy_http_request(request, path)
+async def catch_all(request: Request, path: str):
+    return await proxy_http(request, path)
 
 
 # ============================================================================
@@ -441,16 +371,7 @@ async def proxy_to_streamlit(request: Request, path: str):
 # ============================================================================
 
 if __name__ == "__main__":
-    print("=" * 60)
+    print("=" * 50)
     print("🕌 HalalBot Combined Server")
-    print("=" * 60)
-    print(f"Starting on port {MAIN_PORT}...")
-    print()
-    
-    uvicorn.run(
-        "run:app",
-        host="0.0.0.0",
-        port=MAIN_PORT,
-        log_level="info",
-        access_log=True
-    )
+    print("=" * 50)
+    uvicorn.run("run:app", host="0.0.0.0", port=MAIN_PORT, log_level="info")
