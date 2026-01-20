@@ -9,6 +9,7 @@ FIXES APPLIED:
 - Lowered default minimum score from 0.5 to 0.05 based on debug analysis
 - Added better error handling and debugging output
 - Optimized database queries for better performance
+- FIXED: Sorting now prioritizes SCORE over category
 
 This module provides semantic search functionality using PostgreSQL and 
 cosine similarity calculations for Islamic knowledge documents.
@@ -50,6 +51,7 @@ class DatabaseSearchService:
     - Proper similarity score handling
     - Better error handling and debugging
     - Optimized for 29k+ document collection
+    - FIXED: Score-first sorting with category as tiebreaker
     """
     
     def __init__(self, debug_mode: bool = False):
@@ -294,11 +296,18 @@ class DatabaseSearchService:
                 print(f"   • Average similarity: {np.mean(similarity_stats):.6f}")
                 print(f"   • Results above threshold: {len(scored_results)}")
             
-            # Sort results by priority and score
+            # ============================================================
+            # FIXED SORTING: Score first, category as tiebreaker only
+            # ============================================================
+            # Previously: category priority first, then score (WRONG!)
+            # Now: score first (descending), then category priority (ascending)
+            # This ensures the most relevant documents appear first,
+            # regardless of whether they're Quran, Hadith, etc.
+            # ============================================================
             scored_results.sort(
                 key=lambda x: (
-                    self.calculate_category_priority(x['category']),  # Category priority first
-                    -x['score']  # Then by score (descending)
+                    -x['score'],  # Score first (descending - higher is better)
+                    self.calculate_category_priority(x['category'])  # Category as tiebreaker
                 )
             )
             
@@ -412,6 +421,17 @@ def search_faiss(
     except Exception as e:
         print(f"❌ Search service error: {e}")
         return []
+
+
+# Singleton instance for better performance (avoid reloading model)
+_search_service_instance = None
+
+def get_search_service() -> DatabaseSearchService:
+    """Get or create singleton search service instance"""
+    global _search_service_instance
+    if _search_service_instance is None:
+        _search_service_instance = DatabaseSearchService(debug_mode=False)
+    return _search_service_instance
 
 
 def format_markdown_response(query: str, results: List[Dict]) -> str:
