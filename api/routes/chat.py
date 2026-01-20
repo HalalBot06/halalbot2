@@ -240,7 +240,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
         search_results = search_faiss(
             query=query,
             top_k=10,
-            min_score=0.05,  # Low threshold - semantic scores are 0.05-0.27 for good matches
+            min_score=0.5,  # Low threshold - semantic scores are 0.05-0.27 for good matches
             source_filter=request.source_filter
         )
         
