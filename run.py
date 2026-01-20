@@ -5,6 +5,7 @@ HalalBot Combined Server Runner
 Runs both FastAPI (REST API) and Streamlit (Web App) together.
 - FastAPI handles /api/* routes for the iOS app
 - Streamlit handles all other routes for the web app
+- WebSocket connections are properly proxied to Streamlit
 
 Railway runs this script, which starts both services.
 """
@@ -15,14 +16,17 @@ import subprocess
 import signal
 import time
 import threading
+import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime
 
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
+import websockets
+from websockets.exceptions import ConnectionClosed
 
 # Import the API routes
 from api.schemas import HealthResponse
@@ -38,7 +42,8 @@ MAIN_PORT = int(os.environ.get("PORT", 8080))
 
 # Streamlit runs internally on a different port
 STREAMLIT_PORT = 8501
-STREAMLIT_URL = f"http://127.0.0.1:{STREAMLIT_PORT}"
+STREAMLIT_HTTP_URL = f"http://127.0.0.1:{STREAMLIT_PORT}"
+STREAMLIT_WS_URL = f"ws://127.0.0.1:{STREAMLIT_PORT}"
 
 # Global reference to Streamlit process
 streamlit_process = None
@@ -67,6 +72,7 @@ def start_streamlit():
         "--browser.gatherUsageStats=false",
         "--server.enableCORS=false",
         "--server.enableXsrfProtection=false",
+        "--server.enableWebsocketCompression=false",  # Simpler WebSocket handling
     ]
     
     streamlit_process = subprocess.Popen(
@@ -87,18 +93,17 @@ def start_streamlit():
     thread = threading.Thread(target=log_streamlit_output, daemon=True)
     thread.start()
     
-    # Wait for Streamlit to be ready (with longer timeout)
+    # Wait for Streamlit to be ready
     print("⏳ Waiting for Streamlit to be ready...")
-    max_retries = 60  # Increased from 30
+    max_retries = 60
     
     for i in range(max_retries):
         try:
             with httpx.Client(timeout=2.0) as client:
-                response = client.get(f"{STREAMLIT_URL}/_stcore/health")
+                response = client.get(f"{STREAMLIT_HTTP_URL}/_stcore/health")
                 if response.status_code == 200:
                     print(f"✅ Streamlit is ready on port {STREAMLIT_PORT}")
-                    # Give it a bit more time to fully initialize
-                    time.sleep(2)
+                    time.sleep(1)  # Brief pause for full initialization
                     return True
         except Exception:
             pass
@@ -168,7 +173,7 @@ async def lifespan(app: FastAPI):
     
     # Initialize HTTP client for proxying AFTER Streamlit is ready
     http_client = httpx.AsyncClient(
-        base_url=STREAMLIT_URL,
+        base_url=STREAMLIT_HTTP_URL,
         timeout=30.0,
         follow_redirects=True
     )
@@ -297,12 +302,90 @@ async def api_root():
 
 
 # ============================================================================
-# PROXY TO STREAMLIT (for all non-API routes)
+# WEBSOCKET PROXY TO STREAMLIT
 # ============================================================================
 
-async def proxy_request(request: Request, path: str) -> Response:
+@app.websocket("/_stcore/stream")
+async def websocket_proxy(websocket: WebSocket):
     """
-    Proxy a request to Streamlit.
+    Proxy WebSocket connections to Streamlit.
+    This is the critical piece for Streamlit's real-time functionality.
+    """
+    await websocket.accept()
+    
+    # Build the WebSocket URL for Streamlit
+    streamlit_ws_url = f"{STREAMLIT_WS_URL}/_stcore/stream"
+    
+    try:
+        # Connect to Streamlit's WebSocket
+        async with websockets.connect(
+            streamlit_ws_url,
+            extra_headers={
+                "Host": f"127.0.0.1:{STREAMLIT_PORT}",
+            },
+            ping_interval=20,
+            ping_timeout=20,
+        ) as streamlit_ws:
+            
+            # Create tasks for bidirectional message passing
+            async def client_to_streamlit():
+                """Forward messages from browser client to Streamlit"""
+                try:
+                    while True:
+                        data = await websocket.receive_text()
+                        await streamlit_ws.send(data)
+                except WebSocketDisconnect:
+                    pass
+                except Exception as e:
+                    print(f"Client→Streamlit error: {e}")
+            
+            async def streamlit_to_client():
+                """Forward messages from Streamlit to browser client"""
+                try:
+                    async for message in streamlit_ws:
+                        if isinstance(message, str):
+                            await websocket.send_text(message)
+                        elif isinstance(message, bytes):
+                            await websocket.send_bytes(message)
+                except ConnectionClosed:
+                    pass
+                except Exception as e:
+                    print(f"Streamlit→Client error: {e}")
+            
+            # Run both directions concurrently
+            client_task = asyncio.create_task(client_to_streamlit())
+            streamlit_task = asyncio.create_task(streamlit_to_client())
+            
+            # Wait for either task to complete (connection closed from either end)
+            done, pending = await asyncio.wait(
+                [client_task, streamlit_task],
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            
+            # Cancel pending tasks
+            for task in pending:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+                    
+    except Exception as e:
+        print(f"WebSocket proxy error: {e}")
+    finally:
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+
+
+# ============================================================================
+# HTTP PROXY TO STREAMLIT (for all non-API routes)
+# ============================================================================
+
+async def proxy_http_request(request: Request, path: str) -> Response:
+    """
+    Proxy an HTTP request to Streamlit.
     """
     global http_client
     
@@ -325,7 +408,7 @@ async def proxy_request(request: Request, path: str) -> Response:
     headers = {}
     for key, value in request.headers.items():
         key_lower = key.lower()
-        if key_lower not in ("host", "connection", "transfer-encoding", "upgrade"):
+        if key_lower not in ("host", "connection", "transfer-encoding", "upgrade", "sec-websocket-key", "sec-websocket-version", "sec-websocket-extensions"):
             headers[key] = value
     
     try:
@@ -357,7 +440,7 @@ async def proxy_request(request: Request, path: str) -> Response:
             media_type="text/plain"
         )
     except Exception as e:
-        print(f"Proxy error: {e}")
+        print(f"HTTP Proxy error: {e}")
         return Response(
             content=f"Proxy error: {str(e)}",
             status_code=502,
@@ -369,7 +452,7 @@ async def proxy_request(request: Request, path: str) -> Response:
 @app.get("/", include_in_schema=False)
 async def root(request: Request):
     """Proxy root to Streamlit"""
-    return await proxy_request(request, "")
+    return await proxy_http_request(request, "")
 
 
 # Catch-all route - proxy everything else to Streamlit
@@ -379,7 +462,7 @@ async def proxy_to_streamlit(request: Request, path: str):
     Proxy all non-API requests to Streamlit.
     This makes the web app accessible at the root URL.
     """
-    return await proxy_request(request, path)
+    return await proxy_http_request(request, path)
 
 
 # ============================================================================
