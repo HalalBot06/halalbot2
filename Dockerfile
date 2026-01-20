@@ -1,5 +1,5 @@
 # HalalBot Production Dockerfile for Railway
-# Runs both FastAPI (REST API) and Streamlit (Web App)
+# Optimized for fast deployment and CPU-only inference
 
 FROM python:3.11-slim
 
@@ -45,9 +45,18 @@ USER halalbot
 # Expose port 8080 (Railway's default)
 EXPOSE 8080
 
-# Health check using the FastAPI health endpoint
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-8080}/api/health || exit 1
+# Health check for Railway
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-8080}/_stcore/health || exit 1
 
-# Run the combined server (FastAPI + Streamlit)
-CMD ["python", "run.py"]
+# Run Streamlit with Railway's dynamic port
+# Railway sets the PORT environment variable automatically
+CMD streamlit run app.py \
+    --server.port=${PORT:-8080} \
+    --server.address=0.0.0.0 \
+    --server.headless=true \
+    --server.runOnSave=false \
+    --server.fileWatcherType=none \
+    --browser.gatherUsageStats=false \
+    --server.enableCORS=false \
+    --server.enableXsrfProtection=false
