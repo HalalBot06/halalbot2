@@ -148,6 +148,12 @@ async def health_check():
     )
 
 
+@app.get("/_stcore/health", include_in_schema=False)
+async def railway_health():
+    """Health check endpoint for Railway (Streamlit-compatible path)"""
+    return {"status": "ok"}
+
+
 # ============================================================================
 # MAIN
 # ============================================================================
