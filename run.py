@@ -19,6 +19,7 @@ import threading
 import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime
+from urllib.parse import urlencode
 
 import uvicorn
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
@@ -26,7 +27,7 @@ from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 import websockets
-from websockets.exceptions import ConnectionClosed
+from websockets.exceptions import ConnectionClosed, InvalidStatusCode
 
 # Import the API routes
 from api.schemas import HealthResponse
@@ -72,7 +73,7 @@ def start_streamlit():
         "--browser.gatherUsageStats=false",
         "--server.enableCORS=false",
         "--server.enableXsrfProtection=false",
-        "--server.enableWebsocketCompression=false",  # Simpler WebSocket handling
+        "--server.enableWebsocketCompression=false",
     ]
     
     streamlit_process = subprocess.Popen(
@@ -103,7 +104,7 @@ def start_streamlit():
                 response = client.get(f"{STREAMLIT_HTTP_URL}/_stcore/health")
                 if response.status_code == 200:
                     print(f"✅ Streamlit is ready on port {STREAMLIT_PORT}")
-                    time.sleep(1)  # Brief pause for full initialization
+                    time.sleep(1)
                     return True
         except Exception:
             pass
@@ -252,7 +253,7 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # iOS app needs this
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -309,70 +310,117 @@ async def api_root():
 async def websocket_proxy(websocket: WebSocket):
     """
     Proxy WebSocket connections to Streamlit.
-    This is the critical piece for Streamlit's real-time functionality.
+    This is critical for Streamlit's real-time functionality.
     """
+    # Accept the client connection first
     await websocket.accept()
     
-    # Build the WebSocket URL for Streamlit
+    # Build the Streamlit WebSocket URL with query parameters
+    query_string = str(websocket.scope.get("query_string", b""), "utf-8")
     streamlit_ws_url = f"{STREAMLIT_WS_URL}/_stcore/stream"
+    if query_string:
+        streamlit_ws_url += f"?{query_string}"
+    
+    # Extract headers from the original request to forward
+    # Streamlit needs certain headers to accept the connection
+    original_headers = dict(websocket.scope.get("headers", []))
+    
+    # Build headers for Streamlit connection
+    extra_headers = {
+        "Host": f"127.0.0.1:{STREAMLIT_PORT}",
+        "Origin": f"http://127.0.0.1:{STREAMLIT_PORT}",
+    }
+    
+    # Forward cookies if present
+    if b"cookie" in original_headers:
+        extra_headers["Cookie"] = original_headers[b"cookie"].decode("utf-8")
+    
+    # Forward user-agent if present
+    if b"user-agent" in original_headers:
+        extra_headers["User-Agent"] = original_headers[b"user-agent"].decode("utf-8")
+    
+    streamlit_ws = None
     
     try:
         # Connect to Streamlit's WebSocket
-        async with websockets.connect(
+        streamlit_ws = await websockets.connect(
             streamlit_ws_url,
-            extra_headers={
-                "Host": f"127.0.0.1:{STREAMLIT_PORT}",
-            },
+            extra_headers=extra_headers,
             ping_interval=20,
             ping_timeout=20,
-        ) as streamlit_ws:
-            
-            # Create tasks for bidirectional message passing
-            async def client_to_streamlit():
-                """Forward messages from browser client to Streamlit"""
-                try:
-                    while True:
-                        data = await websocket.receive_text()
-                        await streamlit_ws.send(data)
-                except WebSocketDisconnect:
-                    pass
-                except Exception as e:
+            close_timeout=10,
+        )
+        
+        print(f"✅ WebSocket proxy connected to Streamlit")
+        
+        # Create tasks for bidirectional message passing
+        async def client_to_streamlit():
+            """Forward messages from browser client to Streamlit"""
+            try:
+                while True:
+                    try:
+                        # Try to receive text first
+                        data = await websocket.receive()
+                        if "text" in data:
+                            await streamlit_ws.send(data["text"])
+                        elif "bytes" in data:
+                            await streamlit_ws.send(data["bytes"])
+                        elif data.get("type") == "websocket.disconnect":
+                            break
+                    except WebSocketDisconnect:
+                        break
+            except Exception as e:
+                if "disconnect" not in str(e).lower():
                     print(f"Client→Streamlit error: {e}")
-            
-            async def streamlit_to_client():
-                """Forward messages from Streamlit to browser client"""
-                try:
-                    async for message in streamlit_ws:
+        
+        async def streamlit_to_client():
+            """Forward messages from Streamlit to browser client"""
+            try:
+                async for message in streamlit_ws:
+                    try:
                         if isinstance(message, str):
                             await websocket.send_text(message)
                         elif isinstance(message, bytes):
                             await websocket.send_bytes(message)
-                except ConnectionClosed:
-                    pass
-                except Exception as e:
+                    except Exception:
+                        break
+            except ConnectionClosed:
+                pass
+            except Exception as e:
+                if "disconnect" not in str(e).lower():
                     print(f"Streamlit→Client error: {e}")
-            
-            # Run both directions concurrently
-            client_task = asyncio.create_task(client_to_streamlit())
-            streamlit_task = asyncio.create_task(streamlit_to_client())
-            
-            # Wait for either task to complete (connection closed from either end)
-            done, pending = await asyncio.wait(
-                [client_task, streamlit_task],
-                return_when=asyncio.FIRST_COMPLETED
-            )
-            
-            # Cancel pending tasks
-            for task in pending:
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
-                    
+        
+        # Run both directions concurrently
+        client_task = asyncio.create_task(client_to_streamlit())
+        streamlit_task = asyncio.create_task(streamlit_to_client())
+        
+        # Wait for either task to complete
+        done, pending = await asyncio.wait(
+            [client_task, streamlit_task],
+            return_when=asyncio.FIRST_COMPLETED
+        )
+        
+        # Cancel pending tasks
+        for task in pending:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+                
+    except InvalidStatusCode as e:
+        print(f"WebSocket proxy error: Streamlit rejected connection with status {e.status_code}")
+    except ConnectionClosed as e:
+        print(f"WebSocket connection closed: {e}")
     except Exception as e:
         print(f"WebSocket proxy error: {e}")
     finally:
+        # Clean up connections
+        if streamlit_ws:
+            try:
+                await streamlit_ws.close()
+            except Exception:
+                pass
         try:
             await websocket.close()
         except Exception:
@@ -408,8 +456,13 @@ async def proxy_http_request(request: Request, path: str) -> Response:
     headers = {}
     for key, value in request.headers.items():
         key_lower = key.lower()
-        if key_lower not in ("host", "connection", "transfer-encoding", "upgrade", "sec-websocket-key", "sec-websocket-version", "sec-websocket-extensions"):
+        if key_lower not in ("host", "connection", "transfer-encoding", "upgrade",
+                             "sec-websocket-key", "sec-websocket-version",
+                             "sec-websocket-extensions", "sec-websocket-accept"):
             headers[key] = value
+    
+    # Set host header for Streamlit
+    headers["Host"] = f"127.0.0.1:{STREAMLIT_PORT}"
     
     try:
         # Make the proxied request
